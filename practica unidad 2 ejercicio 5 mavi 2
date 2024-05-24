@@ -1,0 +1,106 @@
+#include <iostream>
+#include <Box2D/Box2D.h>
+#include <SDL2/SDL.h>
+#include <cmath>
+
+const float32 WORLD_WIDTH = 100.0f;
+const float32 WORLD_HEIGHT = 100.0f;
+const float32 BOX_SIZE = 5.0f;
+const float32 INCLINE_ANGLE = 30.0f;  // Grados
+
+int main(int argc, char* argv[]) {
+    // Inicialización de SDL
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        std::cerr << "SDL_Init Error: " << SDL_GetError() << std::endl;
+        return 1;
+    }
+
+    SDL_Window* window = SDL_CreateWindow("Caja Deslizándose por Plano Inclinado", 100, 100, 800, 600, SDL_WINDOW_SHOWN);
+    if (window == nullptr) {
+        std::cerr << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
+        SDL_Quit();
+        return 1;
+    }
+
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (renderer == nullptr) {
+        SDL_DestroyWindow(window);
+        std::cerr << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
+        SDL_Quit();
+        return 1;
+    }
+
+    // Configuración del mundo de Box2D
+    b2Vec2 gravity(0.0f, -9.8f);
+    b2World world(gravity);
+
+    // Creación del plano inclinado
+    b2BodyDef inclineBodyDef;
+    inclineBodyDef.position.Set(WORLD_WIDTH / 2.0f, 10.0f);
+    inclineBodyDef.angle = -INCLINE_ANGLE * b2_pi / 180.0f;  // Convertir a radianes
+    b2Body* inclineBody = world.CreateBody(&inclineBodyDef);
+
+    b2PolygonShape inclineBox;
+    inclineBox.SetAsBox(WORLD_WIDTH / 2.0f, 10.0f);
+    inclineBody->CreateFixture(&inclineBox, 0.0f);
+
+    // Creación de la caja
+    b2BodyDef boxBodyDef;
+    boxBodyDef.type = b2_dynamicBody;
+    boxBodyDef.position.Set(WORLD_WIDTH / 2.0f, 50.0f);
+    b2Body* boxBody = world.CreateBody(&boxBodyDef);
+
+    b2PolygonShape boxShape;
+    boxShape.SetAsBox(BOX_SIZE / 2.0f, BOX_SIZE / 2.0f);
+
+    b2FixtureDef boxFixtureDef;
+    boxFixtureDef.shape = &boxShape;
+    boxFixtureDef.density = 1.0f;
+    boxFixtureDef.friction = 0.3f;  // Coeficiente de rozamiento
+    boxBody->CreateFixture(&boxFixtureDef);
+
+    // Bucle principal
+    bool quit = false;
+    SDL_Event e;
+
+    while (!quit) {
+        while (SDL_PollEvent(&e) != 0) {
+            if (e.type == SDL_QUIT) {
+                quit = true;
+            }
+        }
+
+        world.Step(1.0f / 60.0f, 6, 2);
+
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_RenderClear(renderer);
+
+        // Renderizar el plano inclinado
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_Rect inclineRect = {
+            0,
+            static_cast<int>(600 - 10.0f * 600.0f / WORLD_HEIGHT),
+            800,
+            static_cast<int>(20.0f * 600.0f / WORLD_HEIGHT)
+        };
+        SDL_RenderFillRect(renderer, &inclineRect);
+
+        // Renderizar la caja
+        b2Vec2 position = boxBody->GetPosition();
+        SDL_Rect boxRect = {
+            static_cast<int>(position.x * 800.0f / WORLD_WIDTH - BOX_SIZE * 800.0f / WORLD_WIDTH / 2.0f),
+            600 - static_cast<int>(position.y * 600.0f / WORLD_HEIGHT + BOX_SIZE * 600.0f / WORLD_HEIGHT / 2.0f),
+            static_cast<int>(BOX_SIZE * 800.0f / WORLD_WIDTH),
+            static_cast<int>(BOX_SIZE * 600.0f / WORLD_HEIGHT)
+        };
+        SDL_RenderFillRect(renderer, &boxRect);
+
+        SDL_RenderPresent(renderer);
+    }
+
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    return 0;
+}
